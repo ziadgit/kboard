@@ -235,6 +235,7 @@ void updateLeds(uint32_t now) {
 
 BLEUart bleuart;
 BLEDis   bledis;
+bool     telemetryOn = false;   // D:1 / D:0 (debug: stream T: lines at 10 Hz)
 char     rxLine[48];
 uint8_t  rxLen = 0;
 
@@ -279,6 +280,10 @@ void handleCommand(const char *cmd) {
         flashStart = millis();
       }
     }
+  } else if (strcmp(cmd, "D:1") == 0) {
+    telemetryOn = true;
+  } else if (strcmp(cmd, "D:0") == 0) {
+    telemetryOn = false;
   } else if (strncmp(cmd, "P:", 2) == 0) {
     long bpm = atol(cmd + 2);
     pulseBpm = (uint16_t)constrain(bpm, 0L, 300L);
@@ -312,6 +317,7 @@ void onConnect(uint16_t) {
 void onDisconnect(uint16_t, uint8_t) {
   rxLen = 0;
   pulseBpm = 0;
+  telemetryOn = false;
 }
 
 void startAdvertising() {
@@ -352,6 +358,9 @@ int batteryPercent() {
 
 uint32_t lastGestureMs = 0;
 bool     anyGesture    = false;
+
+// latest values, for T: telemetry
+float    tRoll = 0, tPitch = 0, tGx = 0, tGz = 0, tMag = 0;
 
 // shake
 uint32_t shakePeaks[SHAKE_PEAKS];
@@ -409,6 +418,8 @@ void processSample(float ax, float ay, float az, float gx, float gy, float gz, u
 
   // --- SHAKE: SHAKE_PEAKS peaks over SHAKE_G within SHAKE_WINDOW_MS
   const float mag = sqrtf(wx * wx + wy * wy + wz * wz);
+  tRoll = roll; tPitch = pitch; tGx = rx; tGz = rz; tMag = mag;
+
   if (!inShakePeak && mag > SHAKE_G) {
     inShakePeak = true;
     shakePeaks[shakeIdx] = now;
@@ -486,6 +497,7 @@ bool     imuOk          = false;
 uint32_t lastImuRetryMs = 0;
 uint32_t lastLedMs      = 0;
 uint32_t lastBatteryMs  = 0;
+uint32_t lastTelemetryMs = 0;
 
 void setup() {
   for (uint8_t i = 0; i < 4; i++) {
@@ -535,11 +547,24 @@ void loop() {
     updateLeds(now);
   }
 
+  if (telemetryOn && Bluefruit.connected() && now - lastTelemetryMs >= 100) {
+    lastTelemetryMs = now;
+    char line[48];
+    if (imuOk) {
+      // T:<roll deg>,<pitch deg>,<gyro long-axis dps>,<gyro Z dps>,<accel magnitude centi-g>
+      snprintf(line, sizeof(line), "T:%d,%d,%d,%d,%d", (int)lroundf(tRoll), (int)lroundf(tPitch),
+               (int)lroundf(tGx), (int)lroundf(tGz), (int)lroundf(tMag * 100.0f));
+    } else {
+      snprintf(line, sizeof(line), "T:NOIMU");
+    }
+    sendLine(line);
+  }
+
   if (Bluefruit.connected() && now - lastBatteryMs >= BATTERY_PERIOD_MS) {
     lastBatteryMs = now;
     int pct = batteryPercent();
     if (pct >= 0) {
-      char line[8];
+      char line[16];
       snprintf(line, sizeof(line), "B:%d", pct);
       sendLine(line);
     }

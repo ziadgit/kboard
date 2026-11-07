@@ -56,6 +56,11 @@ Laptop -> wand:
 - `P:<bpm>` pulse current color at given beats per minute (0 = stop)
 - `OFF`
 
+Debug (optional, for tuning; normal laptop app can ignore `T:` lines):
+- Laptop -> wand `D:1` / `D:0`: start/stop telemetry (auto-stops on disconnect).
+- Wand -> laptop `T:<roll>,<pitch>,<gyroLong>,<gyroZ>,<accelMag_centi_g>` at 10 Hz (integers, deg, deg/s),
+  or `T:NOIMU` if the IMU is not detected. `tools/wand_monitor.py` prints these.
+
 ## LED behavior
 - Idle: breathe slowly in current group color.
 - On gesture detected: brief white blink (local, immediate), then laptop sends color/flash.
