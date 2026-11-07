@@ -1,0 +1,40 @@
+{
+  "note": "Fandom colors are approximate hex values for official or fan-recognized colors. Songs use YouTube search queries; the laptop script resolves them to videos. energy: 1 (ballad) to 5 (high-energy dance).",
+  "groups": [
+    {"name": "BTS", "fandom": "ARMY", "colors": ["A020F0"], "songs": [
+      {"title": "Dynamite", "energy": 4, "query": "BTS Dynamite official MV"},
+      {"title": "Butter", "energy": 4, "query": "BTS Butter official MV"},
+      {"title": "Spring Day", "energy": 2, "query": "BTS Spring Day official MV"},
+      {"title": "MIC Drop", "energy": 5, "query": "BTS MIC Drop remix official MV"}]},
+    {"name": "BLACKPINK", "fandom": "BLINK", "colors": ["FF69B4", "111111"], "songs": [
+      {"title": "DDU-DU DDU-DU", "energy": 5, "query": "BLACKPINK DDU-DU DDU-DU MV"},
+      {"title": "How You Like That", "energy": 5, "query": "BLACKPINK How You Like That MV"},
+      {"title": "Stay", "energy": 2, "query": "BLACKPINK STAY MV"},
+      {"title": "Pink Venom", "energy": 4, "query": "BLACKPINK Pink Venom MV"}]},
+    {"name": "TWICE", "fandom": "ONCE", "colors": ["FCC89B", "FF5FA2"], "songs": [
+      {"title": "TT", "energy": 4, "query": "TWICE TT MV"},
+      {"title": "Fancy", "energy": 4, "query": "TWICE FANCY MV"},
+      {"title": "What is Love?", "energy": 4, "query": "TWICE What is Love MV"},
+      {"title": "Feel Special", "energy": 3, "query": "TWICE Feel Special MV"}]},
+    {"name": "SEVENTEEN", "fandom": "CARAT", "colors": ["F7CAC9", "92A8D1"], "songs": [
+      {"title": "Very Nice", "energy": 5, "query": "SEVENTEEN Very Nice MV"},
+      {"title": "Don't Wanna Cry", "energy": 3, "query": "SEVENTEEN Don't Wanna Cry MV"},
+      {"title": "Super", "energy": 5, "query": "SEVENTEEN Super MV"}]},
+    {"name": "EXO", "fandom": "EXO-L", "colors": ["FFF8E7"], "songs": [
+      {"title": "Growl", "energy": 4, "query": "EXO Growl MV"},
+      {"title": "Love Shot", "energy": 3, "query": "EXO Love Shot MV"},
+      {"title": "Miracles in December", "energy": 1, "query": "EXO Miracles in December MV"}]},
+    {"name": "Stray Kids", "fandom": "STAY", "colors": ["E10600", "111111"], "songs": [
+      {"title": "God's Menu", "energy": 5, "query": "Stray Kids God's Menu MV"},
+      {"title": "MANIAC", "energy": 5, "query": "Stray Kids MANIAC MV"},
+      {"title": "S-Class", "energy": 5, "query": "Stray Kids S-Class MV"}]},
+    {"name": "NewJeans", "fandom": "Bunnies", "colors": ["4FA3E0"], "songs": [
+      {"title": "Hype Boy", "energy": 4, "query": "NewJeans Hype Boy MV"},
+      {"title": "Ditto", "energy": 2, "query": "NewJeans Ditto MV"},
+      {"title": "Super Shy", "energy": 4, "query": "NewJeans Super Shy MV"}]},
+    {"name": "aespa", "fandom": "MY", "colors": ["9B5DE5"], "songs": [
+      {"title": "Next Level", "energy": 5, "query": "aespa Next Level MV"},
+      {"title": "Supernova", "energy": 5, "query": "aespa Supernova MV"},
+      {"title": "Spicy", "energy": 4, "query": "aespa Spicy MV"}]}
+  ]
+}
