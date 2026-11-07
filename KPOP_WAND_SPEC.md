@@ -36,7 +36,7 @@ and the laptop pulls up matching K-pop content (YouTube videos, news, group info
 | `TILT_RIGHT`  | roll > +45 deg held ~300 ms                                 | Next song                                  |
 | `POINT_UP`    | pitch > +70 deg held ~1 s                                    | Fetch latest news/comeback for group       |
 | `TWIST`       | gyro about long axis > ~300 deg/s                           | Switch to next group                       |
-| `WAVE`        | periodic side-to-side motion; report tempo                  | Pick a song matching the wave energy       |
+| `WAVE`        | lightstick arc swung back and forth (1.5+ swings); tempo | Pick a song matching the wave energy       |
 
 Tune thresholds on the real device. Debounce: ignore new gestures for ~800 ms after one fires.
 
@@ -58,7 +58,7 @@ Laptop -> wand:
 
 Debug (optional, for tuning; normal laptop app can ignore `T:` lines):
 - Laptop -> wand `D:1` / `D:0`: start/stop telemetry (auto-stops on disconnect).
-- Wand -> laptop `T:<roll>,<pitch>,<gyroLong>,<gyroZ>,<accelMag_centi_g>` at 10 Hz (integers, deg, deg/s),
+- Wand -> laptop `T:<roll>,<pitch>,<gyroLong>,<gyroZ>,<accelMag_centi_g>,<gyroY>` at 10 Hz (integers, deg, deg/s),
   or `T:NOIMU` if the IMU is not detected. `tools/wand_monitor.py` prints these.
 
 ## LED behavior
