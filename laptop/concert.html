@@ -1,0 +1,82 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Dynamite Mini Concert</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:-apple-system,Helvetica,sans-serif;color:#fff}
+#yt{position:fixed;inset:0;width:100vw;height:100vh;border:0}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:2}
+#wash{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .25s;mix-blend-mode:screen}
+.toast{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);font-size:5.5vw;font-weight:900;letter-spacing:2px;z-index:3;pointer-events:none;text-shadow:0 0 20px #ff4fd8,0 0 50px #a020f0,0 4px 0 #0008;opacity:0;animation:pop 1.6s ease-out forwards;white-space:nowrap}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-80%) scale(1)}}
+#hud{position:fixed;top:16px;left:20px;z-index:4;font-weight:800;font-size:1.1em;text-shadow:0 2px 6px #000}
+#bar{width:220px;height:12px;background:#fff3;border-radius:8px;margin-top:6px;overflow:hidden}#fill{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#ff4fd8,#a020f0);transition:width .3s}
+#conn{position:fixed;bottom:12px;right:16px;z-index:4;font-size:.85em;opacity:.7;text-shadow:0 1px 4px #000}
+#help{position:fixed;bottom:12px;left:16px;z-index:4;font-size:.8em;opacity:.5;text-shadow:0 1px 4px #000}
+#start{position:fixed;inset:0;z-index:9;background:radial-gradient(circle,#3b0a5c,#000);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+#start h1{font-size:6vw;margin:0;text-shadow:0 0 30px #ff4fd8}#start p{font-size:1.6em;opacity:.8}
+</style></head><body>
+<div id="start" onclick="begin()"><h1>💥 DYNAMITE 💥</h1><p>BTS mini concert · click to start the show</p></div>
+<div id="orb" style="position:fixed;inset:0;pointer-events:none;z-index:1;mix-blend-mode:color;transition:opacity .4s"></div><div id="orbglow" style="position:fixed;inset:0;pointer-events:none;z-index:1;mix-blend-mode:screen;transition:opacity .4s"></div><div id="dot" style="position:fixed;top:60px;left:20px;z-index:4;width:34px;height:34px;border-radius:50%;border:2px solid #fff8;box-shadow:0 0 18px currentColor"></div><div id="wash"></div><canvas id="fx"></canvas>
+<div id="hud">HYPE <span id="hv">0</span>%<div id="bar"><div id="fill"></div></div></div>
+<div id="conn">● bridge connecting…</div>
+<div id="help">Keys: S shake · ←/→ tilt · ↑ point up · T twist · W wave</div>
+<script>
+const VID='gdZLi9oWNZg';
+const PAL=['#ffd166','#ff4fd8','#4fd1ff','#7cff6b','#ff8c42','#a020f0'];
+function begin(){document.getElementById('start').remove();
+ const f=document.createElement('iframe');f.id='yt';f.allow='autoplay; encrypted-media; fullscreen';
+ f.src=`https://www.youtube.com/embed/${VID}?autoplay=1&start=20&loop=1&playlist=${VID}&controls=0&modestbranding=1&rel=0&playsinline=1`;
+ document.body.prepend(f)}
+const cv=document.getElementById('fx'),cx=cv.getContext('2d');let W,H;
+function rs(){W=cv.width=innerWidth;H=cv.height=innerHeight}onresize=rs;rs();
+let P=[],sticks=null,beams=null,swirl=null,sweep=null,hype=0;
+const R=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)];
+function toast(t,c){const e=document.createElement('div');e.className='toast';e.textContent=t;if(c)e.style.color=c;document.body.appendChild(e);setTimeout(()=>e.remove(),1700)}
+function wash(css,ms=500){const w=document.getElementById('wash');w.style.background=css;w.style.opacity=.55;clearTimeout(w._t);w._t=setTimeout(()=>w.style.opacity=0,ms)}
+function addHype(n){hype=Math.min(100,hype+n);if(hype>=100){toast('🎆 ENCORE! 🎆','#ffd166');for(let i=0;i<6;i++)setTimeout(()=>firework(R(.15,.85)*W,R(.15,.5)*H),i*250);hype=0}}
+setInterval(()=>{hype=Math.max(0,hype-1)},400);
+// effects
+function firework(x,y){const c=pick(PAL);for(let i=0;i<70;i++){const a=R(0,6.28),s=R(2,8);P.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,g:.12,life:R(50,80),c,r:R(2,4),t:'dot'})}}
+function shake(){wash('radial-gradient(circle,#fff,#ffd16600 70%)',180);
+ for(let i=0;i<3;i++)setTimeout(()=>firework(R(.2,.8)*W,R(.2,.55)*H),i*150);
+ for(let i=0;i<60;i++)P.push({x:R(0,W),y:-20,vx:R(-1.5,1.5),vy:R(2,6),g:.05,life:200,c:pick(PAL),r:R(5,10),t:'conf',rot:R(0,6),vr:R(-.2,.2)});
+ document.body.animate([{transform:'translate(0,0)'},{transform:'translate(8px,-6px)'},{transform:'translate(-8px,6px)'},{transform:'translate(0,0)'}],{duration:300});
+ toast(pick(['💥 DYNAMITE! 💥','🔥 BOOM! 🔥','✨ LIGHT IT UP ✨','💥 KA-BOOM 💥']));addHype(15)}
+function tilt(dir){const c=dir<0?'#4fd1ff':'#ff4fd8';sweep={dir,x:dir<0?W+200:-200,c};
+ wash(`linear-gradient(${dir<0?270:90}deg,${c},transparent)`,700);
+ for(let i=0;i<25;i++)P.push({x:dir<0?W:0,y:R(0,H),vx:dir*R(4,9),vy:R(-1,1),g:0,life:90,c,r:R(2,5),t:'star'});
+ toast(dir<0?'⬅️ LEFT SIDE ARMY!':'RIGHT SIDE ARMY! ➡️',c);addHype(8)}
+function pointUp(){beams={t:0};wash('linear-gradient(0deg,#ffd166,transparent 70%)',900);
+ for(let i=0;i<50;i++)P.push({x:R(0,W),y:H+10,vx:R(-.5,.5),vy:R(-9,-4),g:-.02,life:120,c:pick(['#ffd166','#fff','#ff4fd8']),r:R(3,6),t:'star'});
+ toast(pick(['🙌 HANDS UP! 🙌','☝️ TO THE SKY ☝️','🌟 SHINE! 🌟']),'#ffd166');addHype(10)}
+function twist(){swirl={t:0};wash('conic-gradient(#ffd166,#ff4fd8,#4fd1ff,#7cff6b,#ffd166)',800);
+ for(let i=0;i<80;i++){const a=i/80*6.28;P.push({x:W/2,y:H/2,vx:Math.cos(a)*R(3,7),vy:Math.sin(a)*R(3,7),g:0,life:90,c:PAL[i%PAL.length],r:4,t:'dot',spin:.06})}
+ toast(pick(['🌀 SPIN IT! 🌀','🪩 DISCO TIME 🪩','💫 TWIRL 💫']),'#4fd1ff');addHype(12)}
+function wave(bpm){bpm=Math.max(60,Math.min(200,+bpm||120));sticks={t:0,bpm,until:performance.now()+5000};
+ wash('linear-gradient(0deg,#a020f0,transparent 60%)',1200);toast('💜 ARMY WAVE 💜','#d9a6ff');addHype(10)}
+// color sphere: roll -> hue around the equator, pitch -> latitude (up = bright/white, down = deep)
+let tgtR=0,tgtP=0,curR=0,curP=0,orbHold=0,teleSeen=false;
+function setOrient(r,p){tgtR=r;tgtP=p}
+function orbPause(ms=1600){orbHold=performance.now()+ms}
+function orbTick(now){let d=tgtR-curR;d=((d+540)%360)-180;curR+=d*.15;curP+=(tgtP-curP)*.15;
+ const hue=((curR%360)+360)%360,lat=Math.max(-90,Math.min(90,curP)),L=50+lat*.42,S=100-Math.max(0,lat)*.6,col=`hsl(${hue},${S}%,${L}%)`;
+ const on=now>orbHold,o=document.getElementById('orb'),g=document.getElementById('orbglow');
+ o.style.background=col;o.style.opacity=on?.55:0;g.style.background=`radial-gradient(circle at 50% ${60-lat/3}%,hsla(${hue},${S}%,${L}%,.35),transparent 70%)`;g.style.opacity=on?1:0;
+ const dt=document.getElementById('dot');dt.style.background=col;dt.style.color=col}
+onmousemove=e=>{if(!teleSeen)setOrient((e.clientX/innerWidth)*360-180,90-(e.clientY/innerHeight)*180)};
+const ACT={SHAKE:shake,TILT_LEFT:()=>tilt(-1),TILT_RIGHT:()=>tilt(1),POINT_UP:pointUp,TWIST:twist,WAVE:wave};
+function gesture(line){if(line.startsWith('T:')){const v=line.slice(2).split(',').map(Number);if(v.length>=2&&!isNaN(v[0])){teleSeen=true;setOrient(v[0],v[1])}return}const p=line.trim().replace(/^G:/,'').split(':');if(ACT[p[0]])ACT[p[0]](p[1])}
+document.onkeydown=e=>{const k={s:'SHAKE',ArrowLeft:'TILT_LEFT',ArrowRight:'TILT_RIGHT',ArrowUp:'POINT_UP',t:'TWIST',w:'WAVE'}[e.key];if(k)gesture('G:'+k)};
+function star(x,y,r){cx.beginPath();for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,d=i%2?r/2.2:r;cx.lineTo(x+Math.cos(a)*d,y+Math.sin(a)*d)}cx.fill()}
+function frame(now){orbTick(now);cx.clearRect(0,0,W,H);
+ if(beams){beams.t++;const a=Math.min(1,beams.t/15)*(1-Math.max(0,beams.t-60)/40);for(let i=0;i<5;i++){const x=W*(i+.5)/5,sw=Math.sin(beams.t/15+i)*80;const g=cx.createLinearGradient(x,H,x+sw,0);g.addColorStop(0,`rgba(255,220,120,${.5*a})`);g.addColorStop(1,'rgba(255,220,120,0)');cx.fillStyle=g;cx.beginPath();cx.moveTo(x-20,H);cx.lineTo(x+20,H);cx.lineTo(x+sw+120,0);cx.lineTo(x+sw-120,0);cx.fill()}if(beams.t>100)beams=null}
+ if(sweep){sweep.x+=sweep.dir<0?-40:40;const g=cx.createLinearGradient(sweep.x-200,0,sweep.x+200,0);g.addColorStop(0,'transparent');g.addColorStop(.5,sweep.c+'aa');g.addColorStop(1,'transparent');cx.fillStyle=g;cx.fillRect(sweep.x-200,0,400,H);if(sweep.x<-300||sweep.x>W+300)sweep=null}
+ if(swirl){swirl.t++;cx.save();cx.translate(W/2,H/2);cx.rotate(swirl.t/8);cx.globalAlpha=Math.max(0,1-swirl.t/70);for(let i=0;i<12;i++){cx.rotate(Math.PI/6);cx.fillStyle=PAL[i%PAL.length];cx.fillRect(60+swirl.t*4,-6,80,12)}cx.restore();if(swirl.t>70)swirl=null}
+ if(sticks){const ph=now/60000*sticks.bpm*Math.PI*2,n=Math.ceil(W/55),fade=Math.min(1,(sticks.until-now)/800);for(let i=0;i<n;i++){const x=i*55+27,ang=Math.sin(ph+i*.35)*.5;cx.save();cx.globalAlpha=Math.max(0,fade);cx.translate(x,H+10);cx.rotate(ang);cx.fillStyle='#ddd';cx.fillRect(-3,-70,6,70);cx.shadowColor='#a020f0';cx.shadowBlur=25;cx.fillStyle='#c77dff';cx.beginPath();cx.arc(0,-82,16,0,6.28);cx.fill();cx.restore()}if(now>sticks.until)sticks=null}
+ P=P.filter(p=>--p.life>0);for(const p of P){if(p.spin){const a=Math.atan2(p.vy,p.vx)+p.spin,s=Math.hypot(p.vx,p.vy);p.vx=Math.cos(a)*s;p.vy=Math.sin(a)*s}p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;cx.globalAlpha=Math.min(1,p.life/30);cx.fillStyle=p.c;
+  if(p.t=='conf'){p.rot+=p.vr;cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);cx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);cx.restore()}else if(p.t=='star')star(p.x,p.y,p.r*2);else{cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.28);cx.fill()}}
+ cx.globalAlpha=1;document.getElementById('hv').textContent=Math.round(hype);document.getElementById('fill').style.width=hype+'%';requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+function connect(){const ws=new WebSocket('ws://localhost:8765'),c=document.getElementById('conn');
+ ws.onmessage=m=>{if(m.data.startsWith('STATUS:'))c.textContent='● wand: '+m.data.slice(7);else gesture(m.data)};
+ ws.onopen=()=>c.textContent='● bridge connected';ws.onclose=()=>{c.textContent='● bridge offline (keys work)';setTimeout(connect,2000)}}
+connect();
+</script></body></html>

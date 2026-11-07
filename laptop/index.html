@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8"><title>BTS Wand</title>
+<style>
+body{margin:0;height:100vh;background:radial-gradient(circle at 50% 30%,#3b0a5c,#0d0016);color:#fff;font-family:-apple-system,Helvetica,sans-serif;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#stage{width:90vw;height:85vh;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+img.photo{max-height:72vh;max-width:85vw;border-radius:18px;box-shadow:0 0 60px #a020f0}
+iframe{width:80vw;height:45vw;max-height:78vh;border:0;border-radius:14px;box-shadow:0 0 60px #a020f0}
+h1{font-size:3.4em;margin:.2em;text-shadow:0 0 25px #a020f0}h2{font-size:2em;margin:.2em}p{font-size:1.6em;max-width:70vw;line-height:1.4}
+.card{background:#ffffff14;border:1px solid #a020f088;border-radius:16px;padding:18px 26px;margin:10px;max-width:70vw;text-align:left;font-size:1.15em}
+.small{opacity:.6;font-size:.8em}
+#toast{position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#a020f0;padding:10px 28px;border-radius:30px;font-size:1.4em;font-weight:700;opacity:0;transition:opacity .3s}
+#conn{position:fixed;bottom:14px;right:18px;font-size:.9em;opacity:.8}
+#help{position:fixed;bottom:14px;left:18px;font-size:.85em;opacity:.5}
+</style></head><body>
+<div id="stage"><h1>💜 BTS Wand 💜</h1><p>Shake the wand to start</p></div>
+<div id="tap" onclick="sound=true;this.remove()" style="position:fixed;inset:0;background:#0d0016e6;display:flex;align-items:center;justify-content:center;font-size:2.4em;cursor:pointer;z-index:9">💜 Click once to enable sound 💜</div><div id="toast"></div><div id="conn">● wand: connecting…</div>
+<div id="help">Keys: S shake · ←/→ tilt · ↑ point up · T twist · W wave</div>
+<script>
+let D,pi=0,lastVid=-1,sound=false;const st=document.getElementById('stage');
+const bags={};function next(k,a){let b=bags[k];if(!b||!b.length){b=bags[k]=a.map((_,i)=>i);for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}if(b.length>1&&b[b.length-1]===bags[k+'_last'])b.unshift(b.pop())}const i=b.pop();bags[k+'_last']=i;return a[i]}
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+fetch('bts_content.json?'+Date.now()).then(r=>r.json()).then(j=>D=j);
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,1200)}
+function video(){const v=next('v',D.videos);
+ st.innerHTML=`<iframe src="https://www.youtube.com/embed/${v.id}?autoplay=1&mute=${sound?0:1}&playsinline=1&rel=0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe><h2>${esc(v.title)}</h2><a class="small" style="color:#d9a6ff" href="${v.url}" target="_blank">Won't play? Open on YouTube</a>`}
+function photo(d){pi=(pi+d+D.images.length)%D.images.length;const m=D.images[pi];st.innerHTML=`<img class="photo" src="${m.file}"><h2>${esc(m.title)}</h2><div class="small">${pi+1} / ${D.images.length}</div>`}
+function posts(){st.innerHTML='<h1>Latest from X</h1>'+(()=>{const o=[];for(let k=0;k<Math.min(3,D.posts.length);k++)o.push(next('p',D.posts));return o})().map(p=>`<div class="card">${esc(p.text).replace(/https:\/\/t\.co\/\S+/g,'')}<div class="small">${esc(p.author)} · ${new Date(p.date).toLocaleDateString()}</div></div>`).join('')}
+function member(){const m=next('m',D.members);st.innerHTML=`<img class="photo" style="max-height:58vh" src="${m.photo}"><h1>${esc(m.name)}</h1><p>${esc(m.role)} · Born ${esc(m.birthday)}</p>${m.fun_facts&&m.fun_facts.length?`<p style="font-size:1.2em;opacity:.85">✨ ${esc(m.fun_facts[Math.floor(Math.random()*m.fun_facts.length)].text)}</p>`:''}`}
+function fact(){const f=next('f',D.facts);st.innerHTML=`<h1>💜 BTS Fact</h1><p>${esc(f.text)}</p>`}
+const ACT={SHAKE:video,TILT_LEFT:()=>photo(-1),TILT_RIGHT:()=>photo(1),POINT_UP:posts,TWIST:member,WAVE:fact};
+function gesture(line){if(!D)return;const g=line.trim().replace(/^G:/,'').split(':')[0];if(ACT[g]){toast(g.replace('_',' '));ACT[g]()}}
+document.onkeydown=e=>{const k={s:'SHAKE',ArrowLeft:'TILT_LEFT',ArrowRight:'TILT_RIGHT',ArrowUp:'POINT_UP',t:'TWIST',w:'WAVE'}[e.key];if(k)gesture('G:'+k)};
+function connect(){const ws=new WebSocket('ws://localhost:8765'),c=document.getElementById('conn');
+ ws.onmessage=m=>{if(m.data.startsWith('STATUS:'))c.textContent='● wand: '+m.data.slice(7);else gesture(m.data)};
+ ws.onopen=()=>c.textContent='● bridge connected';ws.onclose=()=>{c.textContent='● bridge offline (keys still work)';setTimeout(connect,2000)}}
+connect();
+</script></body></html>
