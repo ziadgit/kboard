@@ -36,6 +36,10 @@
 #define WAND_GY (gy)
 #define WAND_GZ (gz)
 #define ROLL_SIGN 1.0f        // flip to -1.0f if TILT_LEFT and TILT_RIGHT are swapped
+// The IMU sits rotated about the long axis inside the cardboard wand. This is the roll
+// the wand reports in its neutral pose (measured 2026-11-07 via D:1 telemetry: roll 61,
+// pitch -1). Readings are rotated by this so neutral = roll 0.
+#define MOUNT_ROLL_DEG 61.0f
 
 const float    SHAKE_G            = 2.5f;   // peak threshold (g)
 const float    SHAKE_RELEASE_G    = 1.8f;   // a new peak counts only after dropping below this
@@ -403,9 +407,14 @@ void fireGesture(const char *name, uint32_t now, int wpm = -1) {
 }
 
 void processSample(float ax, float ay, float az, float gx, float gy, float gz, uint32_t now) {
-  const float wx = WAND_AX, wy = WAND_AY, wz = WAND_AZ;
-  const float rx = WAND_GX, rz = WAND_GZ;
-  (void)gy;
+  // Undo the mounting rotation about the long (X) axis for both accel and gyro.
+  static const float mc = cosf(MOUNT_ROLL_DEG * PI / 180.0f);
+  static const float ms = sinf(MOUNT_ROLL_DEG * PI / 180.0f);
+  const float wx = WAND_AX;
+  const float wy = WAND_AY * mc - WAND_AZ * ms;
+  const float wz = WAND_AZ * mc + WAND_AY * ms;
+  const float rx = WAND_GX;
+  const float rz = WAND_GZ * mc + WAND_GY * ms;
 
   // Orientation from low-passed accel.
   lpX += 0.2f * (wx - lpX);
