@@ -30,11 +30,15 @@ async def main(name: str, telemetry: bool) -> None:
             buf[:] = rest
             text = line.decode(errors="replace").strip()
             if text.startswith("T:") and text != "T:NOIMU":
-                f = text[2:].split(",")
-                r, p, gl, gz, mag = f[:5]
-                gy = f"  gyroY {int(f[5]):6d}" if len(f) > 5 else ""
-                print(f"roll {int(r):5d}  pitch {int(p):5d}  gyroLong {int(gl):6d}{gy}  "
-                      f"gyroZ {int(gz):6d}  |a| {int(mag) / 100:.2f} g")
+                try:
+                    f = [int(v) for v in text[2:].split(",")]
+                    r, p, gl, gz, mag = f[:5]
+                except ValueError:
+                    print(f"<< (garbled telemetry) {text}")
+                    continue
+                gy = f"  gyroY {f[5]:6d}" if len(f) > 5 else ""
+                print(f"roll {r:5d}  pitch {p:5d}  gyroLong {gl:6d}{gy}  "
+                      f"gyroZ {gz:6d}  |a| {mag / 100:.2f} g")
             else:
                 print(f"<< {text}")
 

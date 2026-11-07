@@ -48,7 +48,8 @@ const uint32_t SHAKE_WINDOW_MS    = 600;
 const uint32_t SHAKING_MS         = 500;    // TWIST/WAVE are suppressed this long after a shake peak
 
 const float    TILT_DEG           = 45.0f;
-const float    TILT_MAX_DEG       = 135.0f; // beyond this the wand is upside down, not tilted
+const float    TILT_MAX_DEG       = 95.0f;  // beyond this the wand is lying on its side, not tilted
+                                            // (measured: real tilts 55-85 deg, resting on side ~105 deg)
 const float    TILT_MAX_PITCH     = 45.0f;  // tilts only count with the wand roughly level
 const uint32_t TILT_HOLD_MS       = 300;
 const float    POINT_UP_DEG       = 70.0f;
@@ -62,6 +63,8 @@ const uint32_t ACTIVE_LOCKOUT_MS  = 600;    // ...and blocks pose gestures for t
 const float    TWIST_DPS          = 300.0f; // gyro about the long (X) axis
 const uint8_t  TWIST_SAMPLES      = 2;      // consecutive samples over threshold
 const float    TWIST_RELEASE_DPS  = 120.0f;
+const float    TWISTING_DPS       = 250.0f; // WAVE is suppressed while rotating this fast about the long axis
+const uint32_t TWISTING_MS        = 600;
 
 // WAVE: the wand swung back and forth (lightstick arc), i.e. alternating rotation about an
 // axis perpendicular to the long axis (Y or Z). Measured arcs: ~1.2 s per side, ~100-150 deg/s.
@@ -379,6 +382,8 @@ bool     anyGesture    = false;
 float    tRoll = 0, tPitch = 0, tGx = 0, tGy = 0, tGz = 0, tMag = 0;
 
 uint32_t lastActiveMs  = 0;
+uint32_t lastTwistingMs = 0;
+bool     anyTwisting   = false;
 
 // Per-gesture latch: after firing, the gesture waits until its motion has been quiet for QUIET_MS.
 struct Latch {
@@ -507,6 +512,8 @@ void processSample(float ax, float ay, float az, float gx, float gy, float gz, u
     inShakePeak = false;
   }
   const bool shaking = anyShakePeak && now - lastShakePeakMs < SHAKING_MS;
+  if (fabsf(rx) > TWISTING_DPS) { lastTwistingMs = now; anyTwisting = true; }
+  const bool twisting = anyTwisting && now - lastTwistingMs < TWISTING_MS;
 
   // --- TWIST: fast rotation about the long axis
   twistCount = (fabsf(rx) > TWIST_DPS) ? twistCount + 1 : 0;
@@ -519,7 +526,7 @@ void processSample(float ax, float ay, float az, float gx, float gy, float gz, u
   int wpm = waveY.update(ry, now);
   int wpmZ = waveZ.update(rz, now);
   if (wpm < 0) wpm = wpmZ;
-  if (shaking) { waveY.reset(); waveZ.reset(); }
+  if (shaking || twisting) { waveY.reset(); waveZ.reset(); }
   else if (wpm >= 0 && !debouncing && !waveLatch.latched) {
     fireGesture("WAVE", now, &waveLatch, wpm);
     return;
