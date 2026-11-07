@@ -10,9 +10,18 @@ and the laptop pulls up matching K-pop content (YouTube videos, news, group info
 - Board: Nucode NU40DK (nRF52840, 64 MHz Cortex-M4F, BLE 5, native USB)
 - Arduino core: `nucode:nrf52` 1.0.2 (fork of Adafruit nRF52 core; use Bluefruit BLE library: `#include <bluefruit.h>`)
 - Board manager URL: https://raw.githubusercontent.com/Nucode01/Adafruit_nRF52_Arduino/refs/heads/master/package_nuduino_index.json
-- Onboard IMU (accel + gyro) and onboard LEDs. TODO (Claude): confirm IMU part/I2C address and LED pins from the
-  variant files in `~/Library/Arduino15/packages/nucode/hardware/nrf52/1.0.2/variants/`.
-- Powered by battery pack.
+- FQBN: `nucode:nrf52:nu40dk`
+- IMU: **not onboard.** External NU-IMU (ST LSM6DS3TR-C, 6-axis) on the Qwiic connector, I2C SDA=P0.26, SCL=P0.27.
+  I2C address 0x6B or 0x6A; firmware identifies it by WHO_AM_I because the board's BQ25186 charger can also use 0x6A.
+- LEDs: 4 **single-color** LEDs, LED1..LED4 = P0.13..P0.16 (Arduino pins 13..16). There is **no RGB LED**, so
+  hex colors are approximated: brightness = max channel, hue picks the brightest LED (red/orange=LED1,
+  yellow/green=LED2, cyan/blue=LED3, purple/pink=LED4), pale colors light all four. Adding an RGB LED/strip
+  would allow true group colors without protocol changes.
+- Buttons S1..S4 = P0.11, P0.12, P0.24, P0.25 (internal pull-up). Not used by the protocol yet.
+- Power: LiPo on the BATT connector (USB also works). Battery voltage on P0.02 via 470K/1M divider (solder
+  bridge SB14); `B:` is only sent when a plausible battery voltage is read.
+- Orientation convention: neutral pose is the wand held horizontal, pointing forward, IMU face up.
+  POINT_UP = tip raised > 70 deg. Holding the wand upright like a real lightstick reads as POINT_UP.
 
 ## Division of work
 - **Claude Code**: firmware (`firmware/kpop_wand/kpop_wand.ino`): IMU reading, gesture detection, BLE service, LEDs.
