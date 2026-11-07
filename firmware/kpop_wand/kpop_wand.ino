@@ -47,20 +47,29 @@ const uint8_t  SHAKE_PEAKS        = 3;
 const uint32_t SHAKE_WINDOW_MS    = 600;
 
 const float    TILT_DEG           = 45.0f;
+const float    TILT_MAX_DEG       = 135.0f; // beyond this the wand is upside down, not tilted
 const uint32_t TILT_HOLD_MS       = 300;
 const float    POINT_UP_DEG       = 70.0f;
 const uint32_t POINT_UP_HOLD_MS   = 1000;
 const float    NEUTRAL_ROLL_DEG   = 25.0f;  // orientation gestures re-arm after returning near neutral
 const float    NEUTRAL_PITCH_DEG  = 40.0f;
+const float    HOLD_STILL_DPS     = 90.0f;  // a pose only counts as "held" while rotating slower than this
+const float    ACTIVE_DPS         = 150.0f; // rotation faster than this is "moving"...
+const uint32_t ACTIVE_LOCKOUT_MS  = 600;    // ...and blocks pose gestures for this long afterwards
 
 const float    TWIST_DPS          = 300.0f; // gyro about the long (X) axis
 const uint8_t  TWIST_SAMPLES      = 2;      // consecutive samples over threshold
 
-const float    WAVE_DEADBAND_DPS  = 60.0f;  // gyro about Z (side-to-side swing)
-const float    WAVE_PEAK_DPS      = 120.0f; // each half swing must reach this
+const float    WAVE_SWING_DPS     = 150.0f; // gyro about Z must alternately pass +/- this (hysteresis)
 const uint8_t  WAVE_HALF_SWINGS   = 4;      // 2 full waves
-const uint32_t WAVE_HALF_MIN_MS   = 150;
+const uint32_t WAVE_HALF_MIN_MS   = 120;
 const uint32_t WAVE_HALF_MAX_MS   = 1000;
+
+// After SHAKE / TWIST / WAVE, the motion has to stop before another motion gesture can fire
+// (continuing to shake does not re-fire every debounce period).
+const float    QUIET_DPS          = 120.0f;
+const float    QUIET_G            = 1.6f;
+const uint32_t QUIET_MS           = 400;
 
 const uint32_t DEBOUNCE_MS        = 800;
 const uint32_t BLINK_MS           = 80;     // local white blink on gesture
@@ -366,6 +375,11 @@ bool     anyGesture    = false;
 // latest values, for T: telemetry
 float    tRoll = 0, tPitch = 0, tGx = 0, tGz = 0, tMag = 0;
 
+// motion latch: set by SHAKE/TWIST/WAVE, released after QUIET_MS of quiet
+bool     motionLatched = false;
+uint32_t quietSince    = 0;
+uint32_t lastActiveMs  = 0;
+
 // shake
 uint32_t shakePeaks[SHAKE_PEAKS];
 uint8_t  shakeIdx = 0;
@@ -379,10 +393,9 @@ bool     orientArmed = true;
 // twist
 uint8_t  twistCount = 0;
 
-// wave
-int8_t   waveSign = 0;
-float    wavePeak = 0;
-uint32_t waveFlipMs = 0;
+// wave (Schmitt trigger on gyro Z)
+int8_t   waveLastSign = 0;
+uint32_t waveLastCrossMs = 0;
 uint32_t waveHalfMs[WAVE_HALF_SWINGS];
 uint8_t  waveHalfCount = 0;
 
@@ -391,11 +404,10 @@ void resetGestureTrackers() {
   tiltLeftSince = tiltRightSince = pointUpSince = 0;
   twistCount = 0;
   waveHalfCount = 0;
-  waveSign = 0;
-  wavePeak = 0;
+  waveLastSign = 0;
 }
 
-void fireGesture(const char *name, uint32_t now, int wpm = -1) {
+void fireGesture(const char *name, uint32_t now, bool motion, int wpm = -1) {
   char line[24];
   if (wpm >= 0) snprintf(line, sizeof(line), "G:%s:%d", name, wpm);
   else          snprintf(line, sizeof(line), "G:%s", name);
@@ -403,6 +415,10 @@ void fireGesture(const char *name, uint32_t now, int wpm = -1) {
   blinkUntil = now + BLINK_MS;
   lastGestureMs = now;
   anyGesture = true;
+  if (motion) {
+    motionLatched = true;
+    quietSince = 0;
+  }
   resetGestureTrackers();
 }
 
@@ -414,6 +430,7 @@ void processSample(float ax, float ay, float az, float gx, float gy, float gz, u
   const float wy = WAND_AY * mc - WAND_AZ * ms;
   const float wz = WAND_AZ * mc + WAND_AY * ms;
   const float rx = WAND_GX;
+  const float ry = WAND_GY * mc - WAND_GZ * ms;
   const float rz = WAND_GZ * mc + WAND_GY * ms;
 
   // Orientation from low-passed accel.
@@ -423,19 +440,30 @@ void processSample(float ax, float ay, float az, float gx, float gy, float gz, u
   const float roll  = ROLL_SIGN * atan2f(lpY, lpZ) * 180.0f / PI;
   const float pitch = atan2f(lpX, sqrtf(lpY * lpY + lpZ * lpZ)) * 180.0f / PI;
 
-  const bool debouncing = anyGesture && (now - lastGestureMs < DEBOUNCE_MS);
-
-  // --- SHAKE: SHAKE_PEAKS peaks over SHAKE_G within SHAKE_WINDOW_MS
-  const float mag = sqrtf(wx * wx + wy * wy + wz * wz);
+  const float mag     = sqrtf(wx * wx + wy * wy + wz * wz);
+  const float gyroMag = sqrtf(rx * rx + ry * ry + rz * rz);
   tRoll = roll; tPitch = pitch; tGx = rx; tGz = rz; tMag = mag;
 
+  const bool debouncing = anyGesture && (now - lastGestureMs < DEBOUNCE_MS);
+  if (gyroMag > ACTIVE_DPS) lastActiveMs = now;
+
+  // Release the motion latch once the wand has been quiet for QUIET_MS.
+  if (gyroMag < QUIET_DPS && mag < QUIET_G) {
+    if (!quietSince) quietSince = now;
+    if (motionLatched && now - quietSince >= QUIET_MS) motionLatched = false;
+  } else {
+    quietSince = 0;
+  }
+  const bool motionBlocked = debouncing || motionLatched;
+
+  // --- SHAKE: SHAKE_PEAKS peaks over SHAKE_G within SHAKE_WINDOW_MS
   if (!inShakePeak && mag > SHAKE_G) {
     inShakePeak = true;
     shakePeaks[shakeIdx] = now;
     shakeIdx = (shakeIdx + 1) % SHAKE_PEAKS;
     uint32_t oldest = shakePeaks[shakeIdx];  // oldest of the last SHAKE_PEAKS peaks
-    if (!debouncing && oldest != 0 && now - oldest <= SHAKE_WINDOW_MS) {
-      fireGesture("SHAKE", now);
+    if (!motionBlocked && oldest != 0 && now - oldest <= SHAKE_WINDOW_MS) {
+      fireGesture("SHAKE", now, true);
       return;
     }
   } else if (inShakePeak && mag < SHAKE_RELEASE_G) {
@@ -444,57 +472,58 @@ void processSample(float ax, float ay, float az, float gx, float gy, float gz, u
 
   // --- TWIST: fast rotation about the long axis
   twistCount = (fabsf(rx) > TWIST_DPS) ? twistCount + 1 : 0;
-  if (!debouncing && twistCount >= TWIST_SAMPLES) {
-    fireGesture("TWIST", now);
+  if (!motionBlocked && twistCount >= TWIST_SAMPLES) {
+    fireGesture("TWIST", now, true);
     return;
   }
 
-  // --- WAVE: alternating side-to-side swings (gyro about Z), report tempo
-  int8_t s = 0;
-  if (rz > WAVE_DEADBAND_DPS) s = 1;
-  else if (rz < -WAVE_DEADBAND_DPS) s = -1;
-  if (s != 0) {
-    if (waveSign == 0) {
-      waveSign = s; waveFlipMs = now; wavePeak = fabsf(rz);
-    } else if (s == waveSign) {
-      wavePeak = max(wavePeak, fabsf(rz));
-    } else {
-      uint32_t half = now - waveFlipMs;
-      bool good = wavePeak >= WAVE_PEAK_DPS && half >= WAVE_HALF_MIN_MS && half <= WAVE_HALF_MAX_MS;
-      if (good) {
+  // --- WAVE: gyro Z alternately crossing +WAVE_SWING_DPS and -WAVE_SWING_DPS.
+  // Hysteresis means small wobbles between swings are ignored.
+  int8_t cross = 0;
+  if (rz > WAVE_SWING_DPS && waveLastSign != 1) cross = 1;
+  else if (rz < -WAVE_SWING_DPS && waveLastSign != -1) cross = -1;
+  if (cross != 0) {
+    if (waveLastSign != 0) {
+      uint32_t half = now - waveLastCrossMs;
+      if (half >= WAVE_HALF_MIN_MS && half <= WAVE_HALF_MAX_MS) {
         if (waveHalfCount < WAVE_HALF_SWINGS) waveHalfMs[waveHalfCount++] = half;
       } else {
         waveHalfCount = 0;
       }
-      waveSign = s; waveFlipMs = now; wavePeak = fabsf(rz);
-      if (!debouncing && waveHalfCount >= WAVE_HALF_SWINGS) {
-        uint32_t total = 0;
-        for (uint8_t i = 0; i < WAVE_HALF_SWINGS; i++) total += waveHalfMs[i];
-        float fullWaveMs = 2.0f * total / WAVE_HALF_SWINGS;
-        fireGesture("WAVE", now, (int)(60000.0f / fullWaveMs + 0.5f));
-        return;
-      }
     }
-  } else if (waveSign != 0 && now - waveFlipMs > WAVE_HALF_MAX_MS) {
-    waveSign = 0;  // motion stopped
+    waveLastSign = cross;
+    waveLastCrossMs = now;
+    if (!motionBlocked && waveHalfCount >= WAVE_HALF_SWINGS) {
+      uint32_t total = 0;
+      for (uint8_t i = 0; i < WAVE_HALF_SWINGS; i++) total += waveHalfMs[i];
+      float fullWaveMs = 2.0f * total / WAVE_HALF_SWINGS;
+      fireGesture("WAVE", now, true, (int)(60000.0f / fullWaveMs + 0.5f));
+      return;
+    }
+  } else if (waveLastSign != 0 && now - waveLastCrossMs > WAVE_HALF_MAX_MS) {
+    waveLastSign = 0;  // swinging stopped
     waveHalfCount = 0;
   }
 
-  // --- Orientation gestures (held poses). Re-arm only after returning near neutral,
-  // so holding a pose fires once.
+  // --- Orientation gestures (held poses). A pose only counts while the wand is held
+  // still, never right after fast motion, and fires once until the wand returns near neutral.
   if (fabsf(roll) < NEUTRAL_ROLL_DEG && pitch < NEUTRAL_PITCH_DEG) orientArmed = true;
 
-  pointUpSince   = (pitch > POINT_UP_DEG)                       ? (pointUpSince   ? pointUpSince   : now) : 0;
-  tiltLeftSince  = (pitch < POINT_UP_DEG && roll < -TILT_DEG)   ? (tiltLeftSince  ? tiltLeftSince  : now) : 0;
-  tiltRightSince = (pitch < POINT_UP_DEG && roll >  TILT_DEG)   ? (tiltRightSince ? tiltRightSince : now) : 0;
+  const bool still = gyroMag < HOLD_STILL_DPS && now - lastActiveMs >= ACTIVE_LOCKOUT_MS;
+  const bool up    = still && pitch > POINT_UP_DEG;
+  const bool left  = still && pitch < POINT_UP_DEG && roll < -TILT_DEG && roll > -TILT_MAX_DEG;
+  const bool right = still && pitch < POINT_UP_DEG && roll >  TILT_DEG && roll <  TILT_MAX_DEG;
+  pointUpSince   = up    ? (pointUpSince   ? pointUpSince   : now) : 0;
+  tiltLeftSince  = left  ? (tiltLeftSince  ? tiltLeftSince  : now) : 0;
+  tiltRightSince = right ? (tiltRightSince ? tiltRightSince : now) : 0;
 
   if (debouncing || !orientArmed) return;
   if (pointUpSince && now - pointUpSince >= POINT_UP_HOLD_MS) {
-    orientArmed = false; fireGesture("POINT_UP", now);
+    orientArmed = false; fireGesture("POINT_UP", now, false);
   } else if (tiltLeftSince && now - tiltLeftSince >= TILT_HOLD_MS) {
-    orientArmed = false; fireGesture("TILT_LEFT", now);
+    orientArmed = false; fireGesture("TILT_LEFT", now, false);
   } else if (tiltRightSince && now - tiltRightSince >= TILT_HOLD_MS) {
-    orientArmed = false; fireGesture("TILT_RIGHT", now);
+    orientArmed = false; fireGesture("TILT_RIGHT", now, false);
   }
 }
 
